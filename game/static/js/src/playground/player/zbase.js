@@ -7,8 +7,12 @@ class Player extends AcGameObject{
         this.ctx = this.playground.game_map.ctx;
         this.x = x;
         this.y = y;
-        this.vx = 0;
+        this.vx = 0; // 鼠标点击移动的角度
         this.vy = 0;
+        this.damage_x = 0; //被击中后移动的角度
+        this.damage_y = 0;
+        this.damage_speed = 0; // 被击中后的移动速度
+        this.friction = 0.9; //被击中后影响速度的摩擦力
         this.move_length = 0;
         this.radius = radius;
         this.color = color;
@@ -22,6 +26,10 @@ class Player extends AcGameObject{
     start(){
         if(this.is_me){
             this.add_listening_events();
+        }else{
+            let tx = Math.random() * this.playground.width;
+            let ty = Math.random() * this.playground.height;
+            this.move_to(tx, ty);
         }
     }
     // 监听鼠标（小球的移动）
@@ -57,9 +65,9 @@ class Player extends AcGameObject{
         let angle = Math.atan2(ty - this.y, tx - this.x);
         let vx = Math.cos(angle), vy = Math.sin(angle);
         let color = "orange";
-        let speed = this.speed * 4;
+        let speed = this.speed * 2;
         let move_length = this.playground.height * 1;
-        new FireBall(this.playground, this, x, y, radius, vx, vy, color, speed, move_length);
+        new FireBall(this.playground, this, x, y, radius, vx, vy, color, speed, move_length, this.playground.height * 0.01); // 每个玩家的半径是height * 0.05, 伤害是0.01--每次会打掉玩家20%的血量
     }
 
     // 获得2点之间的欧几里得距离
@@ -76,17 +84,42 @@ class Player extends AcGameObject{
         this.vy = Math.sin(angle);
     }
 
-    update(){
-        if(this.move_length < this.eps){
-            this.move_length = 0;
-            this.vx = this.vy = 0;
+    is_attacked(angle, damage){
+        this.radius -= damage;
+        if(this.radius < 10){ // 半径小于10像素——玩家死亡
+            this.destory();
+            return false;
         }else{
-            let moved = Math.min(this.move_length, this.speed * this.timedelta / 1000);
-            this.x += this.vx * moved; // 角度*距离 == x,y的移动距离
-            this.y += this.vy * moved;
-            this.move_length -= moved;
+            this.damage_x = Math.cos(angle);
+            this.damage_y = Math.sin(angle);
+            this.damage_speed = damage * 2; // 2是自己定的参数
         }
 
+    }
+
+    update(){
+        if(this.damage_speed > this.eps){ // 玩家处于被攻击状态，无法操作
+            this.vx = this.vy = 0;
+            this.move_length = 0;
+            this.x += this.damage_x * this.speed * this.timedelta / 1000; // 角度*速度*时间
+            this.y += this.damage_y * this.speed * this.timedelta / 1000;
+            this.damage_speed *= this.friction;
+        }else{
+            if(this.move_length < this.eps){
+                this.move_length = 0;
+                this.vx = this.vy = 0;
+                if(!this.is_me){ // AI敌人到达终点后需要再指定一个目标点
+                    let tx = Math.random() * this.playground.width;
+                    let ty = Math.random() * this.playground.height;
+                    this.move_to(tx, ty);
+                }
+            }else{
+                let moved = Math.min(this.move_length, this.speed * this.timedelta / 1000);
+                this.x += this.vx * moved; // 角度*距离 == x,y的移动距离
+                this.y += this.vy * moved;
+                this.move_length -= moved;
+            }
+        }
         this.render(); // 每一帧都要画一次玩家
     }
 
