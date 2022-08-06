@@ -25,6 +25,7 @@ class AcGameMenu {
                 </div>
             </div>
         `);
+        this.$menu.hide(); // 用户在登陆状态下才显示菜单页面
         this.root.$ac_game.append(this.$menu);
         // 在$menu中找到特定class的对象,将其定义为button
         this.$single = this.$menu.find('.ac-game-field-item-single');
@@ -203,6 +204,13 @@ class Player extends AcGameObject{
 
         this.cur_skill = null;
         this.spent_time = 0;
+
+        if(this.is_me){
+            this.img = new Image();
+            while(this.playground.root.settings.username === "")
+                this.img.src = this.playground.root.settings.photo;
+            console.log(this.img.src);
+        }
     }
 
     start(){
@@ -328,10 +336,21 @@ class Player extends AcGameObject{
     }
 
     render(){
-        this.ctx.beginPath();
-        this.ctx.arc(this.x, this.y, this.radius, 0, Math.PI*2, false);
-        this.ctx.fillStyle = this.color;
-        this.ctx.fill();
+        // 用户画头像
+        if(this.is_me){
+            this.ctx.save();
+            this.ctx.beginPath();
+            this.ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2, false);
+            this.ctx.stroke();
+            this.ctx.clip();
+            this.ctx.drawImage(this.img, this.x - this.radius, this.y - this.radius, this.radius * 2, this.radius * 2); 
+            this.ctx.restore();
+        }else{
+            this.ctx.beginPath();
+            this.ctx.arc(this.x, this.y, this.radius, 0, Math.PI*2, false);
+            this.ctx.fillStyle = this.color;
+            this.ctx.fill();
+        }
 
     }
 
@@ -453,10 +472,64 @@ class AcGamePlayground {
         this.$playground.hide();
     }
 }
+class Settings{
+    constructor(root){
+        this.root = root;
+        this.platform = "WEB";
+        // 一个后端对应不同的前端平台
+        //if(this.root.CloudOs)
+            //this.platform = "ACAPP";
+        this.username="";
+        this.photo="";
+        this.start();
+    }
+    start(){
+        this.getinfo();
+    }
+
+    register(){ // 打开注册页面
+    }
+
+    login(){ // 打开登录页面
+
+    }
+
+    getinfo(){
+        let outer = this;
+
+        $.ajax({
+            url: "http://121.5.68.237:8000/settings/getinfo/",
+            type: "GET",
+            data:{
+                platform: outer.platform,
+            },
+            success: function(resp){
+                if(resp.result === "success"){
+                    outer.username = resp.username;
+                    outer.photo = resp.photo;
+                    console.log(outer.username, outer.photo);
+                    outer.hide(); // 隐藏当前页面
+                    outer.root.menu.show(); // 展示菜单页面
+                }else{
+                    outer.login(); //打开登录页面
+                }
+            }
+        })
+    }
+
+    hide(){
+    }
+
+    show(){
+    }
+}
 export class AcGame{
-    constructor(id){
+    constructor(id, CloudOs){
         this.id = id;
         this.$ac_game = $('#' + id); // 获取对应id的div标签
+        this.CloudOs = CloudOs; // web端没有此参数，云端app此参数提供一系列接口
+
+        this.settings = new Settings(this);
         this.menu = new AcGameMenu(this);
         this.playground = new AcGamePlayground(this);
 

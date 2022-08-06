@@ -25,6 +25,7 @@ class AcGameMenu {
                 </div>
             </div>
         `);
+        this.$menu.hide(); // 用户在登陆状态下才显示菜单页面
         this.root.$ac_game.append(this.$menu);
         // 在$menu中找到特定class的对象,将其定义为button
         this.$single = this.$menu.find('.ac-game-field-item-single');
