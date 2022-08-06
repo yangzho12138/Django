@@ -21,6 +21,7 @@ class Player extends AcGameObject{
         this.eps = 0.1; // 允许的误差
 
         this.cur_skill = null;
+        this.spent_time = 0;
     }
 
     start(){
@@ -85,6 +86,18 @@ class Player extends AcGameObject{
     }
 
     is_attacked(angle, damage){
+        // 被撞击时的火花粒子效果
+        for(let i = 1; i < 10 + Math.random() * 5; i++){
+            let x = this.x;
+            let y = this.y;
+            let radius = this.radius * Math.random() * 0.1;
+            let angle = Math.PI * 3 * Math.random();
+            let vx = Math.cos(angle), vy = Math.sin(angle);
+            let color = this.color;
+            let speed = this.speed * 11;
+            new Particle(this.playground, x, y, radius, vx, vy, color, speed);
+        }
+
         this.radius -= damage;
         if(this.radius < 10){ // 半径小于10像素——玩家死亡
             this.destory();
@@ -98,6 +111,16 @@ class Player extends AcGameObject{
     }
 
     update(){
+        this.spent_time += this.timedelta / 1000;
+        if(!this.is_me){
+            if(this.spent_time > 5 && Math.random() < 1 / 180.0){ //前5s不攻击 and 概率每3s发射一次
+                let player = this.playground.players[Math.floor(Math.random() * this.playground.players.length)];
+                let tx = player.x + player.speed * player.vx * player.timedelta / 1000 * 0.3; // 向目标0.3s后的位置开炮
+                let ty = player.y + player.speed * player.vy * player.timedelta / 1000 * 0.3;
+                this.shot_fireball(tx, ty);
+            }
+        }
+
         if(this.damage_speed > this.eps){ // 玩家处于被攻击状态，无法操作
             this.vx = this.vy = 0;
             this.move_length = 0;
@@ -129,5 +152,13 @@ class Player extends AcGameObject{
         this.ctx.fillStyle = this.color;
         this.ctx.fill();
 
+    }
+
+    on_destory(){ // 玩家死亡后将其移除
+        for(let i = 0; i < this.playground.players.length; i++){
+            if(this.playground.players[i] === this){
+                this.playground.players.splice(i,1);
+            }
+        }
     }
 }

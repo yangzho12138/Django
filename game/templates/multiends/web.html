@@ -1,5 +1,6 @@
 <!-- 加载static文件夹路径 -->
-{ % load static %}
+{% load static %}
+<!DOCTYPE html>
 
 <head>
     <!-- jquery -->
@@ -12,9 +13,10 @@
 
 <body style"margin: 0">
     <div id="game_1"></div>
-    <script>
+    <script type="module"> // type + import 模块化，只将AcGame类暴露在页面的代码中
+        import {AcGame} from "{% static 'js/dist/game.js' %}";
         $(document).ready(function(){
-            let ac_game = AcGame("game_1");
+            let ac_game = new AcGame("game_1");
         });
     </script>
 

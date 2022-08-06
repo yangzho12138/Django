@@ -15,6 +15,14 @@ class AcGameMenu {
                         Settings
                     </div>
                 </div>
+                <div class="ac-game-menu-intro">
+                    <div class="ac-game-menu-intro-title">
+                        Welcome to Warlock Battle
+                    </div>
+                    <div class="ac-game-menu-intro-description">
+                        This is a xxx game, users need to manipulate the role to defeat others
+                    </div>
+                </div>
             </div>
         `);
         this.root.$ac_game.append(this.$menu);
