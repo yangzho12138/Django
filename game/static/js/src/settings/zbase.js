@@ -25,6 +25,7 @@ class Settings{
 
         $.ajax({
             url: "http://121.5.68.237:8000/settings/getinfo/",
+            //async: false,
             type: "GET",
             data:{
                 platform: outer.platform,
@@ -34,6 +35,7 @@ class Settings{
                     outer.username = resp.username;
                     outer.photo = resp.photo;
                     console.log(outer.username, outer.photo);
+                    outer.root.playground = new AcGamePlayground(outer.root);
                     outer.hide(); // 隐藏当前页面
                     outer.root.menu.show(); // 展示菜单页面
                 }else{

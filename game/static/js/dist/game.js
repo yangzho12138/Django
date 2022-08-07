@@ -207,8 +207,7 @@ class Player extends AcGameObject{
 
         if(this.is_me){
             this.img = new Image();
-            while(this.playground.root.settings.username === "")
-                this.img.src = this.playground.root.settings.photo;
+            this.img.src = this.playground.root.settings.photo;
             console.log(this.img.src);
         }
     }
@@ -499,6 +498,7 @@ class Settings{
 
         $.ajax({
             url: "http://121.5.68.237:8000/settings/getinfo/",
+            //async: false,
             type: "GET",
             data:{
                 platform: outer.platform,
@@ -508,6 +508,7 @@ class Settings{
                     outer.username = resp.username;
                     outer.photo = resp.photo;
                     console.log(outer.username, outer.photo);
+                    outer.root.playground = new AcGamePlayground(outer.root);
                     outer.hide(); // 隐藏当前页面
                     outer.root.menu.show(); // 展示菜单页面
                 }else{
@@ -529,9 +530,10 @@ export class AcGame{
         this.$ac_game = $('#' + id); // 获取对应id的div标签
         this.CloudOs = CloudOs; // web端没有此参数，云端app此参数提供一系列接口
 
-        this.settings = new Settings(this);
         this.menu = new AcGameMenu(this);
-        this.playground = new AcGamePlayground(this);
+        this.settings = new Settings(this);
+        //this.playground = new AcGamePlayground(this);
+        this.playground = null;
 
         this.start();
     }
