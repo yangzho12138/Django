@@ -100,6 +100,7 @@ class Settings{
         this.$register_error_message = this.$register.find(".ac-game-settings-error-message");
         this.$register_login = this.$register.find(".ac-game-settings-option");
 
+        this.$github_login = this.$settings.find(".ac-game-settings-github img");
 
         this.root.$ac_game.append(this.$settings);
 
@@ -113,6 +114,11 @@ class Settings{
     add_listening_events(){
         this.add_listening_events_login();
         this.add_listening_events_register();
+
+        let outer = this;
+        this.$github_login.click(function(){
+            outer.github_login();
+        });
     }
 
     add_listening_events_login(){ // 登录界面的监听函数
@@ -137,6 +143,18 @@ class Settings{
         this.$register_submit.click(function(){
             outer.register_on_remote();
         });
+    }
+
+    github_login(){
+        $.ajax({
+            url: "http://121.5.68.237:8000/settings/github/web/apply_code/",
+            type: "GET",
+            success:function(resp){
+                if(resp.result === "success"){
+                    window.location.replace(resp.apply_code_url);
+                }
+            }
+        })
     }
 
     login_on_remote(){ // 登录操作
