@@ -1,6 +1,6 @@
 class Player extends AcGameObject{
     // 传入地图，玩家圆心的x和y坐标，颜色，速度（占屏幕百分比），是否是玩家自己（自己由鼠标操纵，其他玩家由网络传入的信息操作
-    constructor(playground, x, y, radius, color, speed, is_me){
+    constructor(playground, x, y, radius, color, speed, character, username, photo){
         super();
 
 
@@ -18,23 +18,23 @@ class Player extends AcGameObject{
         this.radius = radius;
         this.color = color;
         this.speed = speed;
-        this.is_me = is_me;
+        this.character = character;
+        this.username = username;
+        this.photo = photo;
         this.eps = 0.01; // 允许的误差
 
-        console.log(this.x, this.y);
 
         this.cur_skill = null;
         this.spent_time = 0;
 
-        if(this.is_me && this.playground.root.settings.photo !== ""){
+        if(this.character !== "robot"){
             this.img = new Image();
-            this.img.src = this.playground.root.settings.photo;
-            console.log(this.img.src);
+            this.img.src = this.photo;
         }
     }
 
     start(){
-        if(this.is_me){
+        if(this.character === "me"){
             this.add_listening_events();
         }else{
             let tx = Math.random() * this.playground.width / this.playground.scale;
@@ -78,7 +78,6 @@ class Player extends AcGameObject{
         let color = "orange";
         let speed = this.speed * 2;
         let move_length = this.playground.height * 1 / this.playground.scale;
-        console.log(this.x,this.y);
         new FireBall(this.playground, this, x, y, radius, vx, vy, color, speed, move_length, this.playground.height * 0.01 / this.playground.scale); // 每个玩家的半径是height * 0.05, 伤害是0.01--每次会打掉玩家20%的血量
     }
 
@@ -128,7 +127,7 @@ class Player extends AcGameObject{
 
     update_move(){ // 更新玩家移动
          this.spent_time += this.timedelta / 1000;
-         if(!this.is_me){
+         if(this.character === "robot"){
              if(this.spent_time > 5 && Math.random() < 1 / 180.0){ //前5s不攻击 and 概率每3s发射一次
                  let player = this.playground.players[Math.floor(Math.random() * this.playground.players.length)];
                  let tx = player.x + player.speed * player.vx * player.timedelta / 1000 * 0.3; // 向目标0.3s后的位置开炮
@@ -147,7 +146,7 @@ class Player extends AcGameObject{
              if(this.move_length < this.eps){
                  this.move_length = 0;
                  this.vx = this.vy = 0;
-                 if(!this.is_me){ // AI敌人到达终点后需要再指定一个目标点
+                 if(this.character === "robot"){ // AI敌人到达终点后需要再指定一个目标点
                      let tx = Math.random() * this.playground.width / this.playground.scale;
                      let ty = Math.random() * this.playground.height / this.playground.scale;
                      this.move_to(tx, ty);
@@ -165,7 +164,7 @@ class Player extends AcGameObject{
     render(){
         let scale = this.playground.scale;
         // 用户画头像 —— 这里要将相对值变为绝对值！
-        if(this.is_me){
+        if(this.character !== "robot"){
             this.ctx.save();
             this.ctx.beginPath();
             this.ctx.arc(this.x * scale, this.y * scale, this.radius * scale, 0, Math.PI * 2, false);

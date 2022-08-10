@@ -38,19 +38,24 @@ class AcGamePlayground {
     update(){
     }
 
-    show(){
-        this.resize();
+    show(mode){
         this.width = this.$playground.width();
         this.height = this.$playground.height();
 
         this.game_map = new GameMap(this);
+        this.resize(); // resize的位置非常重要，在gamemap后resize game_map，在players前使player渲染头像时，this.scale已经被赋值了
         this.players = [];
         // 初始化时需要/this.scale
-        this.players.push(new Player(this, this.width/2/this.scale, this.height/2/this.scale, this.height * 0.05 / this.scale, "white", this.height * 0.15 / this.scale, true));
+        this.players.push(new Player(this, this.width/2/this.scale, this.height/2/this.scale, this.height * 0.05 / this.scale, "white", this.height * 0.15 / this.scale, "me", this.root.settings.username, this.root.settings.photo));
 
+        if(mode === "single mode"){
         // 敌人
-        for(let i=0; i<5;i++){
-              this.players.push(new Player(this, this.width/2/this.scale, this.height/2/this.scale, this.height * 0.05/this.scale, this.get_random_color(), this.height * 0.15/this.scale, false));
+            for(let i=0; i<5;i++){
+                this.players.push(new Player(this, this.width/2/this.scale, this.height/2/this.scale, this.height * 0.05/this.scale, this.get_random_color(), this.height * 0.15/this.scale, "robot"));
+            }
+        }else if(mode === "multi mode"){
+            console.log("multi mode");
+            this.mps = new MultiPlayerSocket(this);
         }
 
         this.$playground.show();
