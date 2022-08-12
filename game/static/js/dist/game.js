@@ -68,6 +68,16 @@ class AcGameObject{
         AC_GAME_OBJECTS.push(this);
         this.has_called_start = false; //是否执行过start函数
         this.timedelta = 0; //当前帧距离上一帧的时间间隔——防止不同浏览器在1s内渲染的帧数不同，因此用时间来衡量刷新的速度
+        this.uuid = this.create_uuid(); // 为每个对象创建一个唯一的id
+    }
+
+    create_uuid(){
+        let res = "";
+        for(let i=0; i<8; i++){
+            let x = parseInt(Math.floor(Math.random() * 10));
+            res += x;
+        }
+        return res;
     }
 
     // 只会在第一帧执行
@@ -194,7 +204,7 @@ class Player extends AcGameObject{
     // 传入地图，玩家圆心的x和y坐标，颜色，速度（占屏幕百分比），是否是玩家自己（自己由鼠标操纵，其他玩家由网络传入的信息操作
     constructor(playground, x, y, radius, color, speed, character, username, photo){
         super();
-
+        console.log(character, username, photo)
 
         this.playground = playground;
         this.ctx = this.playground.game_map.ctx;
@@ -455,18 +465,48 @@ class MultiPlayerSocket{
     constructor(playground){
         this.playground = playground;
 
-        // 建立连接
-        console.log("建立连接");
+        // 建立连接 ws—http, wss—https
         this.ws = new WebSocket("ws://121.5.68.237:8000/ws/multiplayer/");
-        console.log("建立连接2");
 
         this.start();
     }
 
     start(){
+        this.receive();
     }
 
+    receive(){ // 接受从后端发来的信息
+        let outer = this;
+        this.ws.onmessage = function(e){
+            let data = JSON.parse(e.data) // 将Json转换为字符串格式
+            let uuid = data.uuid
+            // 收到的信息是自己发的
+            if(uuid === outer.uuid)
+                return false;
 
+            let event = data.event;
+            if(event === "create_player"){
+                outer.receive_create_player(uuid, data.username, data.photo)
+            }
+        }
+    }
+
+    // 向服务器端发送信息
+    send_create_player(username, photo){
+        let outer = this;
+        this.ws.send(JSON.stringify({
+            'event': "create_player",
+            'uuid': outer.uuid,
+            "username": username,
+            "photo": photo,
+        }))
+    }
+
+    receive_create_player(uuid, username, photo){
+        let player = new Player(this.playground, this.playground.width / 2 / this.playground.scale, this.playground.height / 2 / this.playground.scale,  this.playground.height * 0.05 / this.playground.scale, "white", this.playground.height * 0.15 / this.playground.scale, "enemy", username, photo);
+        player.uuid = uuid; // 每一个player的id以创建他的server生成的id为准
+        this.playground.players.push(player);
+    }
 }
 class AcGamePlayground {
     constructor(root){
@@ -509,6 +549,8 @@ class AcGamePlayground {
     }
 
     show(mode){
+        let outer = this;
+
         this.width = this.$playground.width();
         this.height = this.$playground.height();
 
@@ -524,8 +566,13 @@ class AcGamePlayground {
                 this.players.push(new Player(this, this.width/2/this.scale, this.height/2/this.scale, this.height * 0.05/this.scale, this.get_random_color(), this.height * 0.15/this.scale, "robot"));
             }
         }else if(mode === "multi mode"){
-            console.log("multi mode");
             this.mps = new MultiPlayerSocket(this);
+            this.mps.uuid = this.players[0].uuid; // 玩家自身一定是第一个被加到players数组中的
+
+            // 连接建立后向后端发送消息（uuid以创建该玩家的后端生成的uuid为准）
+            this.mps.ws.onopen = function(){
+                outer.mps.send_create_player(outer.root.settings.username, outer.root.settings.photo);
+            }
         }
 
         this.$playground.show();

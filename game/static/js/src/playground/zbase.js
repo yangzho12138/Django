@@ -39,6 +39,8 @@ class AcGamePlayground {
     }
 
     show(mode){
+        let outer = this;
+
         this.width = this.$playground.width();
         this.height = this.$playground.height();
 
@@ -54,8 +56,13 @@ class AcGamePlayground {
                 this.players.push(new Player(this, this.width/2/this.scale, this.height/2/this.scale, this.height * 0.05/this.scale, this.get_random_color(), this.height * 0.15/this.scale, "robot"));
             }
         }else if(mode === "multi mode"){
-            console.log("multi mode");
             this.mps = new MultiPlayerSocket(this);
+            this.mps.uuid = this.players[0].uuid; // 玩家自身一定是第一个被加到players数组中的
+
+            // 连接建立后向后端发送消息（uuid以创建该玩家的后端生成的uuid为准）
+            this.mps.ws.onopen = function(){
+                outer.mps.send_create_player(outer.root.settings.username, outer.root.settings.photo);
+            }
         }
 
         this.$playground.show();

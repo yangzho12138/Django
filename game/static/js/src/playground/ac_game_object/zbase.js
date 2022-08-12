@@ -5,6 +5,16 @@ class AcGameObject{
         AC_GAME_OBJECTS.push(this);
         this.has_called_start = false; //是否执行过start函数
         this.timedelta = 0; //当前帧距离上一帧的时间间隔——防止不同浏览器在1s内渲染的帧数不同，因此用时间来衡量刷新的速度
+        this.uuid = this.create_uuid(); // 为每个对象创建一个唯一的id
+    }
+
+    create_uuid(){
+        let res = "";
+        for(let i=0; i<8; i++){
+            let x = parseInt(Math.floor(Math.random() * 10));
+            res += x;
+        }
+        return res;
     }
 
     // 只会在第一帧执行
