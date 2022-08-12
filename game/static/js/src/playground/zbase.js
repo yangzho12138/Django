@@ -45,6 +45,8 @@ class AcGamePlayground {
         this.height = this.$playground.height();
 
         this.game_map = new GameMap(this);
+        this.mode = mode; // 记录下模式，在player中调用
+
         this.resize(); // resize的位置非常重要，在gamemap后resize game_map，在players前使player渲染头像时，this.scale已经被赋值了
         this.players = [];
         // 初始化时需要/this.scale

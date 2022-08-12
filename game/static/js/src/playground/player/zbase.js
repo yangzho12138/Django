@@ -26,6 +26,8 @@ class Player extends AcGameObject{
         this.cur_skill = null;
         this.spent_time = 0;
 
+        this.fireballs = [];
+
         if(this.character !== "robot"){
             this.img = new Image();
             this.img.src = this.photo;
@@ -52,10 +54,22 @@ class Player extends AcGameObject{
         this.playground.game_map.$canvas.mousedown(function(e){
             const rect = outer.ctx.canvas.getBoundingClientRect();
             if(e.which === 3){ // 右键
-                outer.move_to((e.clientX - rect.left) / outer.playground.scale,(e.clientY - rect.top) / outer.playground.scale);
+                let tx = (e.clientX - rect.left) / outer.playground.scale;
+                let ty = (e.clientY - rect.top) / outer.playground.scale;
+                // 如果是多人模式则需要广播信息
+                if(outer.playground.mode === "multi mode"){
+                    outer.playground.mps.send_move_to(tx, ty);
+                }
+
+                outer.move_to(tx, ty);
             }else if(e.which === 1){ // 左键
+                let tx = (e.clientX - rect.left) / outer.playground.scale;
+                let ty = (e.clientY - rect.top) / outer.playground.scale;
                 if(outer.cur_skill === "fireball"){
-                    outer.shot_fireball((e.clientX - rect.left) / outer.playground.scale,(e.clientY - rect.top) / outer.playground.scale);
+                    let fireball = outer.shoot_fireball(tx, ty);
+                    if(outer.playground.mode === "multi mode"){
+                        outer.playground.mps.send_shoot_fireball(tx,ty,fireball.uuid);
+                    }
                 }
                 outer.cur_skill = null;
             }
@@ -69,7 +83,7 @@ class Player extends AcGameObject{
         })
     }
 
-    shot_fireball(tx, ty){
+    shoot_fireball(tx, ty){
         let x= this.x, y = this.y;
         let radius = this.radius * 0.3;
         let angle = Math.atan2(ty - this.y, tx - this.x);
@@ -77,7 +91,20 @@ class Player extends AcGameObject{
         let color = "orange";
         let speed = this.speed * 2;
         let move_length = this.playground.height * 1 / this.playground.scale;
-        new FireBall(this.playground, this, x, y, radius, vx, vy, color, speed, move_length, this.playground.height * 0.01 / this.playground.scale); // 每个玩家的半径是height * 0.05, 伤害是0.01--每次会打掉玩家20%的血量
+        let fireball = new FireBall(this.playground, this, x, y, radius, vx, vy, color, speed, move_length, this.playground.height * 0.01 / this.playground.scale); // 每个玩家的半径是height * 0.05, 伤害是0.01--每次会打掉玩家20%的血量
+        this.fireballs.push(fireball);
+
+        return fireball;
+    }
+
+    destory_fireball(uuid){
+        for(let i = 0; i < this.fireballs.length; i++){
+            let fireball = this.fireballs[i];
+            if(fireball.uuid === uuid){
+                fireball.destory();
+                break;
+            }
+        }
     }
 
     // 获得2点之间的欧几里得距离
@@ -131,7 +158,7 @@ class Player extends AcGameObject{
                  let player = this.playground.players[Math.floor(Math.random() * this.playground.players.length)];
                  let tx = player.x + player.speed * player.vx * player.timedelta / 1000 * 0.3; // 向目标0.3s后的位置开炮
                  let ty = player.y + player.speed * player.vy * player.timedelta / 1000 * 0.3;
-                 this.shot_fireball(tx, ty);
+                 this.shoot_fireball(tx, ty);
              }
          }
 
@@ -184,6 +211,7 @@ class Player extends AcGameObject{
         for(let i = 0; i < this.playground.players.length; i++){
             if(this.playground.players[i] === this){
                 this.playground.players.splice(i,1);
+                break;
             }
         }
     }

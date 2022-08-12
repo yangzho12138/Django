@@ -204,7 +204,6 @@ class Player extends AcGameObject{
     // 传入地图，玩家圆心的x和y坐标，颜色，速度（占屏幕百分比），是否是玩家自己（自己由鼠标操纵，其他玩家由网络传入的信息操作
     constructor(playground, x, y, radius, color, speed, character, username, photo){
         super();
-        console.log(character, username, photo)
 
         this.playground = playground;
         this.ctx = this.playground.game_map.ctx;
@@ -229,6 +228,8 @@ class Player extends AcGameObject{
         this.cur_skill = null;
         this.spent_time = 0;
 
+        this.fireballs = [];
+
         if(this.character !== "robot"){
             this.img = new Image();
             this.img.src = this.photo;
@@ -238,7 +239,7 @@ class Player extends AcGameObject{
     start(){
         if(this.character === "me"){
             this.add_listening_events();
-        }else{
+        }else if(this.character === "robot"){
             let tx = Math.random() * this.playground.width / this.playground.scale;
             let ty = Math.random() * this.playground.height / this.playground.scale;
             this.move_to(tx, ty);
@@ -255,10 +256,22 @@ class Player extends AcGameObject{
         this.playground.game_map.$canvas.mousedown(function(e){
             const rect = outer.ctx.canvas.getBoundingClientRect();
             if(e.which === 3){ // 右键
-                outer.move_to((e.clientX - rect.left) / outer.playground.scale,(e.clientY - rect.top) / outer.playground.scale);
+                let tx = (e.clientX - rect.left) / outer.playground.scale;
+                let ty = (e.clientY - rect.top) / outer.playground.scale;
+                // 如果是多人模式则需要广播信息
+                if(outer.playground.mode === "multi mode"){
+                    outer.playground.mps.send_move_to(tx, ty);
+                }
+
+                outer.move_to(tx, ty);
             }else if(e.which === 1){ // 左键
+                let tx = (e.clientX - rect.left) / outer.playground.scale;
+                let ty = (e.clientY - rect.top) / outer.playground.scale;
                 if(outer.cur_skill === "fireball"){
-                    outer.shot_fireball((e.clientX - rect.left) / outer.playground.scale,(e.clientY - rect.top) / outer.playground.scale);
+                    let fireball = outer.shoot_fireball(tx, ty);
+                    if(outer.playground.mode === "multi mode"){
+                        outer.playground.mps.send_shoot_fireball(tx,ty,fireball.uuid);
+                    }
                 }
                 outer.cur_skill = null;
             }
@@ -272,7 +285,7 @@ class Player extends AcGameObject{
         })
     }
 
-    shot_fireball(tx, ty){
+    shoot_fireball(tx, ty){
         let x= this.x, y = this.y;
         let radius = this.radius * 0.3;
         let angle = Math.atan2(ty - this.y, tx - this.x);
@@ -280,7 +293,20 @@ class Player extends AcGameObject{
         let color = "orange";
         let speed = this.speed * 2;
         let move_length = this.playground.height * 1 / this.playground.scale;
-        new FireBall(this.playground, this, x, y, radius, vx, vy, color, speed, move_length, this.playground.height * 0.01 / this.playground.scale); // 每个玩家的半径是height * 0.05, 伤害是0.01--每次会打掉玩家20%的血量
+        let fireball = new FireBall(this.playground, this, x, y, radius, vx, vy, color, speed, move_length, this.playground.height * 0.01 / this.playground.scale); // 每个玩家的半径是height * 0.05, 伤害是0.01--每次会打掉玩家20%的血量
+        this.fireballs.push(fireball);
+
+        return fireball;
+    }
+
+    destory_fireball(uuid){
+        for(let i = 0; i < this.fireballs.length; i++){
+            let fireball = this.fireballs[i];
+            if(fireball.uuid === uuid){
+                fireball.destory();
+                break;
+            }
+        }
     }
 
     // 获得2点之间的欧几里得距离
@@ -334,7 +360,7 @@ class Player extends AcGameObject{
                  let player = this.playground.players[Math.floor(Math.random() * this.playground.players.length)];
                  let tx = player.x + player.speed * player.vx * player.timedelta / 1000 * 0.3; // 向目标0.3s后的位置开炮
                  let ty = player.y + player.speed * player.vy * player.timedelta / 1000 * 0.3;
-                 this.shot_fireball(tx, ty);
+                 this.shoot_fireball(tx, ty);
              }
          }
 
@@ -387,6 +413,7 @@ class Player extends AcGameObject{
         for(let i = 0; i < this.playground.players.length; i++){
             if(this.playground.players[i] === this){
                 this.playground.players.splice(i,1);
+                break;
             }
         }
     }
@@ -419,19 +446,28 @@ class FireBall extends AcGameObject{
             this.destory();
             return false;
         }
-        let moved = Math.min(this.move_length, this.speed * this.timedelta / 1000);
-        this.x += this.vx * moved;
-        this.y += this.vy * moved;
-        this.move_length -= moved;
-
-        for(let i=0; i<this.playground.players.length; i++){
-            let player = this.playground.players[i];
-            if(this.player !== player && this.is_collision(player)){
-                this.attack(player);
-            }
-        }
+        this.update_move();
+        this.update_attack();
 
         this.render();
+    }
+
+    update_move(){
+         let moved = Math.min(this.move_length, this.speed * this.timedelta / 1000);
+         this.x += this.vx * moved;
+         this.y += this.vy * moved;
+         this.move_length -= moved;
+
+    }
+
+    update_attack(){
+        for(let i=0; i<this.playground.players.length; i++){
+             let player = this.playground.players[i];
+             if(this.player !== player && this.is_collision(player)){
+                 this.attack(player);
+                 break;
+             }
+        }
     }
 
     get_dist(x1, y1, x2, y2){
@@ -460,6 +496,17 @@ class FireBall extends AcGameObject{
         this.ctx.fillStyle = this.color;
         this.ctx.fill();
     }
+
+    // 在火球销毁前将其从player存储的火球数组中删除
+    on_destory(){
+        let fireballs = this.player.fireballs;
+        for(let i = 0; i < fireballs.length; i++){
+            if(fireballs[i] === this){
+                fireballs.splice(i,1);
+                break;
+            }
+        }
+    }
 }
 class MultiPlayerSocket{
     constructor(playground){
@@ -486,11 +533,16 @@ class MultiPlayerSocket{
 
             let event = data.event;
             if(event === "create_player"){
-                outer.receive_create_player(uuid, data.username, data.photo)
+                outer.receive_create_player(uuid, data.username, data.photo);
+            }else if(event === "move_to"){
+                outer.receive_move_to(uuid, data.tx, data.ty);
+            }else if(event === "shoot_fireball"){
+                outer.receive_shoot_fireball(uuid, data.tx, data.ty, data.ball_uuid);
             }
         }
     }
 
+    // 实现创建玩家同步
     // 向服务器端发送信息
     send_create_player(username, photo){
         let outer = this;
@@ -506,6 +558,55 @@ class MultiPlayerSocket{
         let player = new Player(this.playground, this.playground.width / 2 / this.playground.scale, this.playground.height / 2 / this.playground.scale,  this.playground.height * 0.05 / this.playground.scale, "white", this.playground.height * 0.15 / this.playground.scale, "enemy", username, photo);
         player.uuid = uuid; // 每一个player的id以创建他的server生成的id为准
         this.playground.players.push(player);
+    }
+
+    // 实现玩家的移动同步
+    send_move_to(tx, ty){
+        let outer = this;
+        this.ws.send(JSON.stringify({
+            'event': 'move_to',
+            'uuid': outer.uuid, // 发出这个动作的人
+            'tx': tx,
+            'ty': ty,
+        }));
+
+    }
+
+    get_player(uuid){
+        let players = this.playground.players;
+        for(let i=0; i < players.length; i++){
+            let player = players[i];
+            if(player.uuid === uuid)
+                return player;
+        }
+        return null;
+    }
+
+    receive_move_to(uuid, tx, ty){
+        let player = this.get_player(uuid);
+        if (player){
+            player.move_to(tx, ty);
+        }
+    }
+
+    // 实现火球发射的同步
+    send_shoot_fireball(tx, ty, ball_uuid){
+        let outer = this;
+        this.ws.send(JSON.stringify({
+            "event": "shoot_fireball",
+            "uuid": outer.uuid, //发出火球的人
+            "tx": tx,
+            "ty": ty,
+            "ball_uuid": ball_uuid,
+        }))
+    }
+
+    receive_shoot_fireball(uuid, tx, ty, ball_uuid){
+        let player = this.get_player(uuid);
+        if (player){
+            let fireball = player.shoot_fireball(tx, ty);
+            fireball.uuid = ball_uuid; // 将所有窗口的同一个火球的id进行统一
+        }
     }
 }
 class AcGamePlayground {
@@ -555,6 +656,8 @@ class AcGamePlayground {
         this.height = this.$playground.height();
 
         this.game_map = new GameMap(this);
+        this.mode = mode; // 记录下模式，在player中调用
+
         this.resize(); // resize的位置非常重要，在gamemap后resize game_map，在players前使player渲染头像时，this.scale已经被赋值了
         this.players = [];
         // 初始化时需要/this.scale
