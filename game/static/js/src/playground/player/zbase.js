@@ -145,6 +145,13 @@ class Player extends AcGameObject{
         }
 
     }
+    // 玩家接收到被攻击的信息
+    receive_attack(x, y, angle, damage, ball_uuid, attacker){
+        attacker.destory_fireball(ball_uuid);
+        this.x = x;
+        this.y = y;
+        this.is_attacked(angle, damage);
+    }
 
     update(){
         this.update_move();

@@ -69,6 +69,9 @@ class FireBall extends AcGameObject{
         this.destory(); // 火球消失
         let angle = Math.atan2(player.y - this.y, player.x - this.x);
         player.is_attacked(angle, this.damage); //玩家被攻击，传入攻击来的方向（被击飞）和伤害值
+        if(this.playground.mode === "multi mode"){ // 在多人模式下被攻击才需要广播信息
+            this.playground.mps.send_attack(player.uuid, player.x, player.y, angle, this.damage, this.uuid);
+        }
     }
 
     render(){

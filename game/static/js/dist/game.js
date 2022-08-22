@@ -347,6 +347,13 @@ class Player extends AcGameObject{
         }
 
     }
+    // 玩家接收到被攻击的信息
+    receive_attack(x, y, angle, damage, ball_uuid, attacker){
+        attacker.destory_fireball(ball_uuid);
+        this.x = x;
+        this.y = y;
+        this.is_attacked(angle, damage);
+    }
 
     update(){
         this.update_move();
@@ -447,7 +454,9 @@ class FireBall extends AcGameObject{
             return false;
         }
         this.update_move();
-        this.update_attack();
+        if(this.player.character !== "enemy"){
+            this.update_attack();
+        }
 
         this.render();
     }
@@ -487,6 +496,9 @@ class FireBall extends AcGameObject{
         this.destory(); // 火球消失
         let angle = Math.atan2(player.y - this.y, player.x - this.x);
         player.is_attacked(angle, this.damage); //玩家被攻击，传入攻击来的方向（被击飞）和伤害值
+        if(this.playground.mode === "multi mode"){ // 在多人模式下被攻击才需要广播信息
+            this.playground.mps.send_attack(player.uuid, player.x, player.y, angle, this.damage, this.uuid);
+        }
     }
 
     render(){
@@ -538,6 +550,8 @@ class MultiPlayerSocket{
                 outer.receive_move_to(uuid, data.tx, data.ty);
             }else if(event === "shoot_fireball"){
                 outer.receive_shoot_fireball(uuid, data.tx, data.ty, data.ball_uuid);
+            }else if(event === "attack"){
+                outer.receive_attack(uuid, data.attackee_uuid, data.x, data.y, data.angle, data.damage, data.ball_uuid);
             }
         }
     }
@@ -606,6 +620,30 @@ class MultiPlayerSocket{
         if (player){
             let fireball = player.shoot_fireball(tx, ty);
             fireball.uuid = ball_uuid; // 将所有窗口的同一个火球的id进行统一
+        }
+    }
+
+    // 同步攻击：以发出攻击并击中的终端为准，将其余终端上的被攻击玩家信息与该终端同步
+    send_attack(attackee_uuid, x, y, angle, damage, ball_uuid){
+        let outer = this;
+        this.ws.send(JSON.stringify({
+            'event': "attack",
+            'uuid': outer.uuid,
+            'attackee_uuid': attackee_uuid,
+            'x': x,
+            'y': y,
+            'angle': angle,
+            'damage': damage,
+            'ball_uuid': ball_uuid,
+        }));
+    }
+
+    receive_attack(uuid, attackee_uuid, x, y, angle, damage, ball_uuid){
+        let attacker = this.get_player(uuid);
+        let attackee = this.get_player(attackee_uuid);
+        console.log(attacker, attackee);
+        if(attacker && attackee){
+            attackee.receive_attack(x, y, angle, damage, ball_uuid, attacker);
         }
     }
 }

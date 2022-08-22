@@ -70,6 +70,19 @@ class MultiPlayer(AsyncWebsocketConsumer):
             "ball_uuid": data["ball_uuid"],
         })
 
+    async def attack(self, data):
+        await self.channel_layer.group_send(self.room_name,{
+            "type": "group_send_event",
+            "event": "attack",
+            "uuid": data["uuid"],
+            "attackee_uuid": data["attackee_uuid"],
+            "x": data["x"],
+            "y": data["y"],
+            "angle": data["angle"],
+            "damage": data["damage"],
+            "ball_uuid": data["ball_uuid"],
+        })
+
     async def group_send_event(self, data):
         await self.send(text_data=json.dumps(data)) # 给前端群发信息
 
@@ -82,5 +95,7 @@ class MultiPlayer(AsyncWebsocketConsumer):
         elif event == "move_to":
             await self.move_to(data)
         elif event == "shoot_fireball":
-            await self.shoot_fireball(data);
+            await self.shoot_fireball(data)
+        elif event == "attack":
+            await self.attack(data)
 
