@@ -160,6 +160,35 @@ class GameMap extends AcGameObject{
 
     }
 }
+class NoticeBoard extends AcGameObject{
+    constructor(playground){
+        super();
+
+        this.playground = playground;
+        this.ctx = this.playground.game_map.ctx;
+        this.text = "waiting for begin: 0 players prepared";
+    }
+
+    start(){
+    }
+
+    write(text){
+        this.text = text;
+    }
+
+    update(){
+        this.render();
+    }
+
+    // 需要每一帧都渲染
+    render(){
+        // canvas 渲染文本
+        this.ctx.font = "20px serif";
+        this.ctx.fillStyle = "white";
+        this.ctx.textAlign = "center";
+        this.ctx.fillText(this.text, this.playground.width / 2, 20);
+    }
+}
 class Particle extends AcGameObject{
     constructor(playground, x, y, radius, vx, vy, color, speed){
         super();
@@ -234,9 +263,20 @@ class Player extends AcGameObject{
             this.img = new Image();
             this.img.src = this.photo;
         }
+        if(this.character === "me"){
+            this.fireball_coldtime = 3; // 冷却时间3s
+        }
     }
 
     start(){
+        this.playground.player_count++;
+        this.playground.notice_board.write("waiting for begin: " + this.playground.player_count + " players prepared");
+        if(this.playground.player_count >= 2){
+            this.playground.state = "fighting";
+            this.playground.notice_board.write("Fighting");
+        }
+
+
         if(this.character === "me"){
             this.add_listening_events();
         }else if(this.character === "robot"){
@@ -254,6 +294,8 @@ class Player extends AcGameObject{
         });
 
         this.playground.game_map.$canvas.mousedown(function(e){
+            if(outer.playground.state !== "fighting")
+                return false;
             const rect = outer.ctx.canvas.getBoundingClientRect();
             if(e.which === 3){ // 右键
                 let tx = (e.clientX - rect.left) / outer.playground.scale;
@@ -265,6 +307,8 @@ class Player extends AcGameObject{
 
                 outer.move_to(tx, ty);
             }else if(e.which === 1){ // 左键
+                if(outer.fireball_coldtime > outer.eps)
+                    return false;
                 let tx = (e.clientX - rect.left) / outer.playground.scale;
                 let ty = (e.clientY - rect.top) / outer.playground.scale;
                 if(outer.cur_skill === "fireball"){
@@ -278,6 +322,10 @@ class Player extends AcGameObject{
         });
 
         $(window).keydown(function(e) {
+            if(outer.playground.state !== "fighting")
+                return false;
+            if(outer.fireball_coldtime > outer.eps)
+                return false;
             if(e.which === 81){ // keydown 81对应Q键
                 outer.cur_skill = "fireball";
                 return false;
@@ -356,12 +404,20 @@ class Player extends AcGameObject{
     }
 
     update(){
+        this.spent_time += this.timedelta / 1000;
+        if(this.character === "me" && this.playground.state === "fighting"){
+            this.update_coldtime();
+        }
         this.update_move();
         this.render(); // 每一帧都要画一次玩家
     }
 
+    update_coldtime(){
+        this.fireball_coldtime -= this.timedelta / 1000;
+        this.fireball_coldtime = Math.max(this.fireball_coldtime, 0);
+    }
+
     update_move(){ // 更新玩家移动
-         this.spent_time += this.timedelta / 1000;
          if(this.character === "robot"){
              if(this.spent_time > 5 && Math.random() < 1 / 180.0){ //前5s不攻击 and 概率每3s发射一次
                  let player = this.playground.players[Math.floor(Math.random() * this.playground.players.length)];
@@ -641,7 +697,6 @@ class MultiPlayerSocket{
     receive_attack(uuid, attackee_uuid, x, y, angle, damage, ball_uuid){
         let attacker = this.get_player(uuid);
         let attackee = this.get_player(attackee_uuid);
-        console.log(attacker, attackee);
         if(attacker && attackee){
             attackee.receive_attack(x, y, angle, damage, ball_uuid, attacker);
         }
@@ -695,6 +750,10 @@ class AcGamePlayground {
 
         this.game_map = new GameMap(this);
         this.mode = mode; // 记录下模式，在player中调用
+        this.state = "waiting"; // 玩家进入游戏后处于waiting状态，无法移动，房间人满后进入fighting状态，死亡后进入over状态，此时无法再发射炮弹
+
+        this.notice_board = new NoticeBoard(this);
+        this.player_count = 0;
 
         this.resize(); // resize的位置非常重要，在gamemap后resize game_map，在players前使player渲染头像时，this.scale已经被赋值了
         this.players = [];

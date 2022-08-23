@@ -46,6 +46,10 @@ class AcGamePlayground {
 
         this.game_map = new GameMap(this);
         this.mode = mode; // 记录下模式，在player中调用
+        this.state = "waiting"; // 玩家进入游戏后处于waiting状态，无法移动，房间人满后进入fighting状态，死亡后进入over状态，此时无法再发射炮弹
+
+        this.notice_board = new NoticeBoard(this);
+        this.player_count = 0;
 
         this.resize(); // resize的位置非常重要，在gamemap后resize game_map，在players前使player渲染头像时，this.scale已经被赋值了
         this.players = [];

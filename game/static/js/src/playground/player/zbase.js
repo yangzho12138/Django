@@ -32,9 +32,20 @@ class Player extends AcGameObject{
             this.img = new Image();
             this.img.src = this.photo;
         }
+        if(this.character === "me"){
+            this.fireball_coldtime = 3; // 冷却时间3s
+        }
     }
 
     start(){
+        this.playground.player_count++;
+        this.playground.notice_board.write("waiting for begin: " + this.playground.player_count + " players prepared");
+        if(this.playground.player_count >= 2){
+            this.playground.state = "fighting";
+            this.playground.notice_board.write("Fighting");
+        }
+
+
         if(this.character === "me"){
             this.add_listening_events();
         }else if(this.character === "robot"){
@@ -52,6 +63,8 @@ class Player extends AcGameObject{
         });
 
         this.playground.game_map.$canvas.mousedown(function(e){
+            if(outer.playground.state !== "fighting")
+                return false;
             const rect = outer.ctx.canvas.getBoundingClientRect();
             if(e.which === 3){ // 右键
                 let tx = (e.clientX - rect.left) / outer.playground.scale;
@@ -63,6 +76,8 @@ class Player extends AcGameObject{
 
                 outer.move_to(tx, ty);
             }else if(e.which === 1){ // 左键
+                if(outer.fireball_coldtime > outer.eps)
+                    return false;
                 let tx = (e.clientX - rect.left) / outer.playground.scale;
                 let ty = (e.clientY - rect.top) / outer.playground.scale;
                 if(outer.cur_skill === "fireball"){
@@ -76,6 +91,10 @@ class Player extends AcGameObject{
         });
 
         $(window).keydown(function(e) {
+            if(outer.playground.state !== "fighting")
+                return false;
+            if(outer.fireball_coldtime > outer.eps)
+                return false;
             if(e.which === 81){ // keydown 81对应Q键
                 outer.cur_skill = "fireball";
                 return false;
@@ -93,6 +112,9 @@ class Player extends AcGameObject{
         let move_length = this.playground.height * 1 / this.playground.scale;
         let fireball = new FireBall(this.playground, this, x, y, radius, vx, vy, color, speed, move_length, this.playground.height * 0.01 / this.playground.scale); // 每个玩家的半径是height * 0.05, 伤害是0.01--每次会打掉玩家20%的血量
         this.fireballs.push(fireball);
+
+        // 每次放完技能后重置技能cd
+        this.fireball_coldtime = 3;
 
         return fireball;
     }
@@ -154,12 +176,20 @@ class Player extends AcGameObject{
     }
 
     update(){
+        this.spent_time += this.timedelta / 1000;
+        if(this.character === "me" && this.playground.state === "fighting"){
+            this.update_coldtime();
+        }
         this.update_move();
         this.render(); // 每一帧都要画一次玩家
     }
 
+    update_coldtime(){
+        this.fireball_coldtime -= this.timedelta / 1000;
+        this.fireball_coldtime = Math.max(this.fireball_coldtime, 0);
+    }
+
     update_move(){ // 更新玩家移动
-         this.spent_time += this.timedelta / 1000;
          if(this.character === "robot"){
              if(this.spent_time > 5 && Math.random() < 1 / 180.0){ //前5s不攻击 and 概率每3s发射一次
                  let player = this.playground.players[Math.floor(Math.random() * this.playground.players.length)];
