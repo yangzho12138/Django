@@ -124,7 +124,7 @@ class Player extends AcGameObject{
 
     shoot_fireball(tx, ty){
         let x= this.x, y = this.y;
-        let radius = this.radius * 0.3;
+        let radius = 0.3;
         let angle = Math.atan2(ty - this.y, tx - this.x);
         let vx = Math.cos(angle), vy = Math.sin(angle);
         let color = "orange";
