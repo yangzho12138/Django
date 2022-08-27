@@ -319,6 +319,7 @@ class Player extends AcGameObject{
                     if(outer.fireball_coldtime > outer.eps)
                         return false;
                     let fireball = outer.shoot_fireball(tx, ty);
+                    // 调用广播函数，通知其他终端
                     if(outer.playground.mode === "multi mode"){
                         outer.playground.mps.send_shoot_fireball(tx,ty,fireball.uuid);
                     }
@@ -326,6 +327,9 @@ class Player extends AcGameObject{
                     if(outer.blink_coldtime > outer.eps)
                         return false;
                     outer.blink(tx, ty);
+                    if(outer.playground.mode === "multi mode"){
+                        outer.playground.mps.send_blink(tx,ty);
+                    }
                 }
                 outer.cur_skill = null;
             }
@@ -553,6 +557,8 @@ class Player extends AcGameObject{
     }
 
     on_destory(){ // 玩家死亡后将其移除
+        if(this.character === "me")
+            this.playground.state = "over";
         for(let i = 0; i < this.playground.players.length; i++){
             if(this.playground.players[i] === this){
                 this.playground.players.splice(i,1);
@@ -688,6 +694,8 @@ class MultiPlayerSocket{
                 outer.receive_shoot_fireball(uuid, data.tx, data.ty, data.ball_uuid);
             }else if(event === "attack"){
                 outer.receive_attack(uuid, data.attackee_uuid, data.x, data.y, data.angle, data.damage, data.ball_uuid);
+            }else if(event === "blink"){
+                outer.receive_blink(uuid, data.tx, data.ty);
             }
         }
     }
@@ -780,6 +788,23 @@ class MultiPlayerSocket{
         if(attacker && attackee){
             attackee.receive_attack(x, y, angle, damage, ball_uuid, attacker);
         }
+    }
+
+    // 同步闪现
+    send_blink(tx, ty){
+        let outer = this;
+        this.ws.send(JSON.stringify({
+            'event': "blink",
+            'uuid': outer.uuid,
+            'tx': tx,
+            'ty': ty,
+        }));
+    }
+
+    receive_blink(uuid, tx, ty){
+        let player = this.get_player(uuid);
+        if(player)
+            player.blink(tx, ty);
     }
 }
 class AcGamePlayground {

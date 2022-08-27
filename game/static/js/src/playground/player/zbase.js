@@ -88,6 +88,7 @@ class Player extends AcGameObject{
                     if(outer.fireball_coldtime > outer.eps)
                         return false;
                     let fireball = outer.shoot_fireball(tx, ty);
+                    // 调用广播函数，通知其他终端
                     if(outer.playground.mode === "multi mode"){
                         outer.playground.mps.send_shoot_fireball(tx,ty,fireball.uuid);
                     }
@@ -95,6 +96,9 @@ class Player extends AcGameObject{
                     if(outer.blink_coldtime > outer.eps)
                         return false;
                     outer.blink(tx, ty);
+                    if(outer.playground.mode === "multi mode"){
+                        outer.playground.mps.send_blink(tx,ty);
+                    }
                 }
                 outer.cur_skill = null;
             }
@@ -322,6 +326,8 @@ class Player extends AcGameObject{
     }
 
     on_destory(){ // 玩家死亡后将其移除
+        if(this.character === "me")
+            this.playground.state = "over";
         for(let i = 0; i < this.playground.players.length; i++){
             if(this.playground.players[i] === this){
                 this.playground.players.splice(i,1);
