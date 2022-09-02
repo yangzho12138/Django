@@ -2,7 +2,7 @@ class ChatField{
     constructor(playground){
         this.playground = playground;
 
-        this.$history = $(`<div class="chat-field-history"> 历史记录  </div>`);
+        this.$history = $(`<div class="chat-field-history"> </div>`);
         this.$input = $(`<input type="text" class="chat-field-input">`);
 
         this.$history.hide();
@@ -33,6 +33,7 @@ class ChatField{
                 if(text){
                     outer.$input.val(""); // 清空聊天框内的内容
                     outer.add_message(username, text);
+                    outer.playground.mps.send_message(username, text);
                 }
                 return false;
             }

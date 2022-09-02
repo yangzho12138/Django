@@ -129,7 +129,7 @@ class ChatField{
     constructor(playground){
         this.playground = playground;
 
-        this.$history = $(`<div class="chat-field-history"> 历史记录  </div>`);
+        this.$history = $(`<div class="chat-field-history"> </div>`);
         this.$input = $(`<input type="text" class="chat-field-input">`);
 
         this.$history.hide();
@@ -160,6 +160,7 @@ class ChatField{
                 if(text){
                     outer.$input.val(""); // 清空聊天框内的内容
                     outer.add_message(username, text);
+                    outer.playground.mps.send_message(username, text);
                 }
                 return false;
             }
@@ -786,6 +787,8 @@ class MultiPlayerSocket{
                 outer.receive_attack(uuid, data.attackee_uuid, data.x, data.y, data.angle, data.damage, data.ball_uuid);
             }else if(event === "blink"){
                 outer.receive_blink(uuid, data.tx, data.ty);
+            }else if(event === "message"){
+                outer.receive_message(uuid, data.username, data.text);
             }
         }
     }
@@ -895,6 +898,21 @@ class MultiPlayerSocket{
         let player = this.get_player(uuid);
         if(player)
             player.blink(tx, ty);
+    }
+
+    // 同步聊天信息
+    send_message(username, text){
+        let outer = this;
+        this.ws.send(JSON.stringify({
+            'event': "message",
+            "uuid": outer.uuid,
+            "username": username,
+            "text": text,
+        }));
+    }
+
+    receive_message(uuid, username, text){
+        this.playground.chat_field.add_message(username, text);
     }
 }
 class AcGamePlayground {
