@@ -125,13 +125,72 @@ let AC_GAME_ANIMATION = function(timestamp){
 }
 
 requestAnimationFrame(AC_GAME_ANIMATION);
+class ChatField{
+    constructor(playground){
+        this.playground = playground;
+
+        this.$history = $(`<div class="chat-field-history"> 历史记录  </div>`);
+        this.$input = $(`<input type="text" class="chat-field-input">`);
+
+        this.$history.hide();
+        this.$input.hide();
+
+        this.func_id = null;
+
+        this.playground.$playground.append(this.$history);
+        this.playground.$playground.append(this.$input);
+
+        this.start();
+    }
+
+    start(){
+        this.add_listening_events();
+    }
+
+    add_listening_events(){
+        let outer = this;
+        // 使聚焦在聊天框时按esc也能退出聊天框
+        this.$input.keydown(function (e){
+            if(e.which === 27){
+                outer.hide_input();
+                return false;
+            }
+        });
+    }
+
+    show_history(){
+        let outer = this;
+        this.$history.fadeIn();
+        // 避免某一次打开后，上一次的定时函数还未执行完毕，因此不到3s就将窗口关闭了
+        if(this.func_id)
+            clearTimeout(this.func_id);
+
+        // 显示3s后关闭
+        this.func_id = setTimeout(function(){
+            outer.$history.fadeOut();
+            outer.func_id = null;
+        }, 3000);
+    }
+
+    show_input(){
+        this.show_history();
+        this.$input.show();
+        this.$input.focus();
+    }
+
+    hide_input(){
+        this.$input.hide();
+        // 将焦点重新聚集到canvas上
+        this.playground.game_map.$canvas.focus();
+    }
+}
 class GameMap extends AcGameObject{
     constructor(playground){ // 传入AcGamePlayground对象
         super();
 
         this.playground = playground;
         // 渲染画面：canvas
-        this.$canvas = $(`<canvas> </canvas>`);
+        this.$canvas = $(`<canvas tabindex=0> </canvas>`); // tabindex使canvas元素可以监听事件
         this.ctx = this.$canvas[0].getContext('2d');
         this.ctx.canvas.width = this.playground.width;
         this.ctx.canvas.height = this.playground.height;
@@ -140,6 +199,7 @@ class GameMap extends AcGameObject{
     }
 
     start(){
+        this.$canvas.focus();
     }
     // 背景大小自适应
     resize(){
@@ -298,10 +358,10 @@ class Player extends AcGameObject{
         this.playground.game_map.$canvas.on("contextmenu", function(){
             return false;
         });
-
+        // 鼠标的事件
         this.playground.game_map.$canvas.mousedown(function(e){
             if(outer.playground.state !== "fighting")
-                return false;
+                return true; // 不处理信息-- true；将这个监听阻断-- false
             const rect = outer.ctx.canvas.getBoundingClientRect();
             if(e.which === 3){ // 右键
                 let tx = (e.clientX - rect.left) / outer.playground.scale;
@@ -334,8 +394,19 @@ class Player extends AcGameObject{
                 outer.cur_skill = null;
             }
         });
-
-        $(window).keydown(function(e) {
+        // 键盘的事件
+        this.playground.game_map.$canvas.keydown(function(e) {
+            if(e.which === 13){ // 回车打开聊天框
+                if (outer.playground.mode === "multi mode"){
+                    outer.playground.chat_field.show_input();
+                    return false;
+                }
+            }else if(e.which === 27){ // esc退出聊天框
+                if(outer.playground.mode === "multi mode"){
+                    outer.playground.chat_field.hide_input();
+                    return false;
+                }
+            }
             if(outer.playground.state !== "fighting")
                 return true;
 
@@ -355,7 +426,7 @@ class Player extends AcGameObject{
 
     shoot_fireball(tx, ty){
         let x= this.x, y = this.y;
-        let radius = this.radius * 0.3;
+        let radius = this.playground.height * 0.01 / this.playground.scale;
         let angle = Math.atan2(ty - this.y, tx - this.x);
         let vx = Math.cos(angle), vy = Math.sin(angle);
         let color = "orange";
@@ -871,6 +942,7 @@ class AcGamePlayground {
                 this.players.push(new Player(this, this.width/2/this.scale, this.height/2/this.scale, this.height * 0.05/this.scale, this.get_random_color(), this.height * 0.15/this.scale, "robot"));
             }
         }else if(mode === "multi mode"){
+            this.chat_field = new ChatField(this);
             this.mps = new MultiPlayerSocket(this);
             this.mps.uuid = this.players[0].uuid; // 玩家自身一定是第一个被加到players数组中的
 

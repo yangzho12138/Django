@@ -67,10 +67,10 @@ class Player extends AcGameObject{
         this.playground.game_map.$canvas.on("contextmenu", function(){
             return false;
         });
-
+        // 鼠标的事件
         this.playground.game_map.$canvas.mousedown(function(e){
             if(outer.playground.state !== "fighting")
-                return false;
+                return true; // 不处理信息-- true；将这个监听阻断-- false
             const rect = outer.ctx.canvas.getBoundingClientRect();
             if(e.which === 3){ // 右键
                 let tx = (e.clientX - rect.left) / outer.playground.scale;
@@ -103,8 +103,19 @@ class Player extends AcGameObject{
                 outer.cur_skill = null;
             }
         });
-
-        $(window).keydown(function(e) {
+        // 键盘的事件
+        this.playground.game_map.$canvas.keydown(function(e) {
+            if(e.which === 13){ // 回车打开聊天框
+                if (outer.playground.mode === "multi mode"){
+                    outer.playground.chat_field.show_input();
+                    return false;
+                }
+            }else if(e.which === 27){ // esc退出聊天框
+                if(outer.playground.mode === "multi mode"){
+                    outer.playground.chat_field.hide_input();
+                    return false;
+                }
+            }
             if(outer.playground.state !== "fighting")
                 return true;
 
@@ -124,7 +135,7 @@ class Player extends AcGameObject{
 
     shoot_fireball(tx, ty){
         let x= this.x, y = this.y;
-        let radius = 0.3;
+        let radius = this.playground.height * 0.01 / this.playground.scale;
         let angle = Math.atan2(ty - this.y, tx - this.x);
         let vx = Math.cos(angle), vy = Math.sin(angle);
         let color = "orange";

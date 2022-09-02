@@ -4,7 +4,7 @@ class GameMap extends AcGameObject{
 
         this.playground = playground;
         // 渲染画面：canvas
-        this.$canvas = $(`<canvas> </canvas>`);
+        this.$canvas = $(`<canvas tabindex=0> </canvas>`); // tabindex使canvas元素可以监听事件
         this.ctx = this.$canvas[0].getContext('2d');
         this.ctx.canvas.width = this.playground.width;
         this.ctx.canvas.height = this.playground.height;
@@ -13,6 +13,7 @@ class GameMap extends AcGameObject{
     }
 
     start(){
+        this.$canvas.focus();
     }
     // 背景大小自适应
     resize(){
