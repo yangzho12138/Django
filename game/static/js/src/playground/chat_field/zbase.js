@@ -27,8 +27,27 @@ class ChatField{
             if(e.which === 27){
                 outer.hide_input();
                 return false;
+            }else if(e.which === 13){
+                let username = outer.playground.root.settings.username;
+                let text = outer.$input.val();
+                if(text){
+                    outer.$input.val(""); // 清空聊天框内的内容
+                    outer.add_message(username, text);
+                }
+                return false;
             }
         });
+    }
+
+    render_message(message){ // 将信息渲染为html格式
+        return $(`<div> ${message} </div>`);
+    }
+
+    add_message(username, text){
+        this.show_history();
+        let message = `[${username}]${text}`;
+        this.$history.append(this.render_message(message));
+        this.$history.scrollTop(this.$history[0].scrollHeight);
     }
 
     show_history(){
