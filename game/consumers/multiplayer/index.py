@@ -2,6 +2,16 @@ from channels.generic.websocket import AsyncWebsocketConsumer
 from django.conf import settings #引入settings.py文件
 from django.core.cache import cache
 import json
+from game.models.player.player import Player
+from channels.db import database_sync_to_async #数据库单线程操作（串行）变为多线程（并行）
+
+# thrift client端
+from thrift import Thrift
+from thrift.transport import TSocket
+from thrift.transport import TTransport
+from thrift.protocol import TBinaryProtocol
+from match_system.src.match_server.match_service import match
+
 
 class MultiPlayer(AsyncWebsocketConsumer):
     async def connect(self):
@@ -32,24 +42,33 @@ class MultiPlayer(AsyncWebsocketConsumer):
 
     async def disconnect(self, close_code):
         print('disconnect')
-        await self.channel_layer.group_discard(self.room_name, self.channel_name)
+        if self.room_name: # 删掉房间
+            await self.channel_layer.group_discard(self.room_name, self.channel_name)
 
     async def create_player(self, data):
-        players = cache.get(self.room_name)
-        players.append({
-            "uuid": data["uuid"],
-            "username": data["username"],
-            "photo": data["photo"],
-        })
-        cache.set(self.room_name, players, 3600) # 将新玩家添加进入房间
-        # 将信息发送给组内的所有人
-        await self.channel_layer.group_send(self.room_name, {
-            "type": "group_send_event", # 接收函数的名字
-            "event": "create_player",
-            "uuid": data["uuid"],
-            "username": data["username"],
-            "photo": data["photo"],
-        })
+        # 将进入多人模式的玩家信息发送给匹配系统服务端
+        self.room_name = None
+        self.uuid = data['uuid']
+        # Make socket
+        transport = TSocket.TSocket('127.0.0.1', 9090)
+        # Buffering is critical. Raw sockets are very slow
+        transport = TTransport.TBufferedTransport(transport)
+        # Wrap in a protocol
+        protocol = TBinaryProtocol.TBinaryProtocol(transport)
+        # Create a client to use the protocol encoder
+        client = match.Client(protocol)
+
+        def db_get_player(): # 根据用户名在数据库中找到对应用户
+            return Player.objects.get(user__username=data['username'])
+
+        player = await database_sync_to_async(db_get_player)() # 异步函数加await
+        # Connect!
+        transport.open()
+        # 调用server端的add_player函数
+        client.add_player(player.score, data['uuid'], data['username'], data['photo'], self.channel_name)
+        # Close!
+        transport.close()
+
 
     async def move_to(self, data):
         await self.channel_layer.group_send(self.room_name,{
@@ -102,6 +121,10 @@ class MultiPlayer(AsyncWebsocketConsumer):
         })
 
     async def group_send_event(self, data):
+        if not self.room_name: # 更新房间名（初始化为None）
+            keys = cache.keys('*%s*' % (self.uuid)) # 利用uuid查找所在房间
+            if keys:
+                self.room_name = keys[0]
         await self.send(text_data=json.dumps(data)) # 给前端群发信息
 
     async def receive(self, text_data):

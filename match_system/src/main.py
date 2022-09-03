@@ -15,6 +15,11 @@ from queue import Queue # 消息队列
 from time import sleep
 from threading import Thread
 
+from djangoapp.asgi import channel_layer # agsi.py中配置
+from asgiref.sync import async_to_sync # 多线程变单线程--》配合匹配系统client端的单线程
+from django.core.cache import cache
+
+
 queue = Queue() # 消息队列缓存消息，当玩家请求匹配，服务器却正在进行其他匹配时——缓存消息
 
 class Player:
@@ -32,9 +37,12 @@ class Pool:
         self.players = []
 
     def add_player(self, player):
+        print("add player %s %d" % (player.username, player.score))
         self.players.append(player)
 
     def check_match(self, a, b):
+        #if(a.username == b.username) # 防止同一个用户自行匹配
+            #return False
         dt = abs(a.score - b.score)
         a_max_dif = a.waiting_time * 50 # 没多等待1s，可以匹配的分数范围扩大50
         b_max_dif = b.waiting_time * 50
@@ -42,6 +50,28 @@ class Pool:
 
     def match_success(self, ps):
         print("Match Success: %s %s" %(ps[0],ps[1]))
+        room_name = "room-%s-%s" % (ps[0].uuid, ps[1].uuid) # 将玩家uuid存进房间名-》可通过用户uuid快速在redis中查找到用户在哪个房间
+        players = []
+        for p in ps:
+            async_to_sync(channel_layer.group_add)(room_name, p.channel_name) # 将匹配成功的玩家加到一组里
+            players.append({
+                'uuid': p.uuid,
+                'username': p.username,
+                'photo': p.photo,
+                'hp': 100, # 初始血量100
+            })
+        cache.set(room_name, players, 3600) # 房间有效时间1h
+        for p in ps:
+            async_to_sync(channel_layer.group_send)( # 广播（同步）信息，同client端consumer
+                room_name,
+                {
+                    "type": "group_send_event", # 在server端调用了client端函数（agsi配置）
+                    "event": "create_player",
+                    "uuid": p.uuid,
+                    "username": p.username,
+                    "photo": p.photo,
+                }
+            )
 
 
     def increase_waiting_time(self):
@@ -53,7 +83,7 @@ class Pool:
             self.players = sorted(self.players, key=lambda p: p.score)
             flag = False
             for i in range(len(self.players) - 1):
-                a, b = self.players[i], self.player[i + 1]
+                a, b = self.players[i], self.players[i + 1]
                 if self.check_match(a,b): # 两两之间都要满足要求
                     flag = True
                     self.match_success([a,b])
