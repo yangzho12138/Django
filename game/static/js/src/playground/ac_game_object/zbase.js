@@ -25,6 +25,10 @@ class AcGameObject{
     update(){
     }
 
+    // 在每一帧的最后执行一次,这样渲染的物体会出现在最上层
+    late_update(){
+    }
+
     // 在被删除前执行一次
     on_destory(){
     }
@@ -54,6 +58,11 @@ let AC_GAME_ANIMATION = function(timestamp){
             obj.timedelta = timestamp - last_timestamp;
             obj.update();
         }
+    }
+
+    for(let i = 0; i < AC_GAME_OBJECTS.length; i++){
+        let obj = AC_GAME_OBJECTS[i];
+        obj.late_update();
     }
 
     last_timestamp = timestamp;
