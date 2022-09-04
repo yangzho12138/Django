@@ -90,6 +90,37 @@ class MultiPlayer(AsyncWebsocketConsumer):
         })
 
     async def attack(self, data):
+        if not self.room_name:
+            return
+        # 游戏积分更新
+        players = cache.get(self.room_name)
+        if not players:
+            return
+
+        for player in players:
+            if player['uuid'] == data['attackee_uuid']:
+                player['hp'] -= 25 # 前端也有一个血量，通过攻击同步函数同步前后端血量参数
+
+        remain_cnt = 0
+        for player in players:
+            if player['hp'] > 0:
+                remain_cnt += 1
+
+        if remain_cnt > 1:
+            if self.room_name:
+                cache.set(self.room_name, players, 3600)
+        else:
+            def db_update_player_score(username, score): # 在异步中调用数据库一定要封装成函数
+                player = Player.objects.get(user__username=username)
+                player.score += score
+                player.save()
+
+            for player in players:
+                if player['hp'] <= 0:
+                    await database_sync_to_async(db_update_player_score)(player['username'], -5)
+                else:
+                    await database_sync_to_async(db_update_player_score)(player['username'],10)
+
         await self.channel_layer.group_send(self.room_name,{
             "type": "group_send_event",
             "event": "attack",
