@@ -15,34 +15,17 @@ from match_system.src.match_server.match_service import match
 
 class MultiPlayer(AsyncWebsocketConsumer):
     async def connect(self):
-        self.room_name = None
-        for i in range(1000): # 遍历每一个房间
-            name = "room-%d" % (i)
-            if not cache.has_key(name) or len(cache.get(name)) < settings.ROOM_CAPACITY: # 房间未建立或未满员
-                self.room_name = name
-                break
-        if not self.room_name: # 未找到合适的房间
-            return
-
-
-        await self.accept()
-        print('accept')
-
-        if not cache.has_key(self.room_name): # 创建新房间
-            cache.set(self.room_name, [], 3600) # 每个房间有效期1h
-        for player in cache.get(self.room_name):
-            await self.send(text_data=json.dumps({ # 发送信息给前端
-                "event": "create_player",
-                "uuid": player['uuid'],
-                "username": player["username"],
-                "photo": player["photo"],
-            }))
-
-        await self.channel_layer.group_add(self.room_name, self.channel_name)
+        user = self.scope['user']
+        if user.is_authenticated:
+            await self.accept()
+            print('accept')
+        else:
+            await self.close() # 当前未创建room_name属性即关掉连接，因此disconnect时要判断self.room_name是否存在
 
     async def disconnect(self, close_code):
         print('disconnect')
-        if self.room_name: # 删掉房间
+        # hasattr判断self中是否存在room_name属性
+        if hasattr(self, "room_name") and self.room_name: # 删掉房间
             await self.channel_layer.group_discard(self.room_name, self.channel_name)
 
     async def create_player(self, data):

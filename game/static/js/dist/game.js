@@ -842,7 +842,7 @@ class MultiPlayerSocket{
         this.playground = playground;
 
         // 建立连接 ws—http, wss—https
-        this.ws = new WebSocket("ws://121.5.68.237:8000/ws/multiplayer/");
+        this.ws = new WebSocket("ws://121.5.68.237:8000/ws/multiplayer/?token=" + playground.root.access);
 
         this.start();
     }
