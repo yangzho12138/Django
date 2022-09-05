@@ -1209,8 +1209,30 @@ class Settings{
         this.start();
     }
     start(){
-        this.getinfo();
+        if (this.root.access){ // 有access  token信则直接获取用户信息
+            this.getinfo();
+            this.refresh_jwt_token();
+        }else{
+            this.login();
+        }
         this.add_listening_events();
+    }
+
+
+    // 刷新access token
+    refresh_jwt_token(){
+        setInterval(() => {
+            $.ajax({
+                url:"http://121.5.68.237:8000/settings/token/refresh/",
+                type: "POST",
+                data: {
+                    refresh: this.root.refresh,
+                },
+                success: resp => {
+                    this.root.access = resp.access;
+                }
+            });
+        }, 4.5 * 60 * 1000);
     }
 
     add_listening_events(){
@@ -1259,24 +1281,26 @@ class Settings{
         })
     }
 
-    login_on_remote(){ // 登录操作
-        let username = this.$login_username.val();
-        let password = this.$login_password.val();
+    login_on_remote(username, password){ // 登录操作
+        username = username || this.$login_username.val();
+        password = password || this.$login_password.val();
         this.$login_error_message.empty();
         let outer = this;
         $.ajax({
-            url: "http://121.5.68.237:8000/settings/login/",
-            type: "GET",
+            url: "http://121.5.68.237:8000/settings/token/",
+            type: "POST",
             data: {
                 username: username,
                 password: password,
             },
             success: function(resp){
-                if(resp.result === "success"){
-                    location.reload(); // 刷新当前文档：登录状态下跳转到菜单页面
-                }else{
-                    outer.$login_error_message.html(resp.result);
-                }
+                outer.root.access = resp.access;
+                outer.root.refresh = resp.refresh;
+                outer.refresh_jwt_token();
+                outer.getinfo();
+            },
+            error: function(){
+                 outer.$login_error_message.html("Username or Password is wrong");
             }
         });
     }
@@ -1289,7 +1313,7 @@ class Settings{
         let outer = this;
         $.ajax({
             url: "http://121.5.68.237:8000/settings/register/",
-            type: "GET",
+            type: "POST",
             data: {
                 username: username,
                 password: password,
@@ -1297,7 +1321,7 @@ class Settings{
             },
             success: function(resp){
                 if(resp.result === "success"){
-                    outer.login();
+                    outer.login_on_remote(username, password);
                 }else{
                     outer.$register_error_message.html(resp.result);
                 }
@@ -1308,15 +1332,9 @@ class Settings{
 
     logout_on_remote(){
         if(this.platform === "WEB"){
-            $.ajax({
-                url: "http://121.5.68.237:8000/settings/logout/",
-                type: "GET",
-                success:function(resp){
-                    if(resp.result === "success"){
-                        location.reload();
-                    }
-                }
-            })
+            this.root.access = "";
+            this.root.refresh = "";
+            location.href = "/";
         }
     }
 
@@ -1339,8 +1357,13 @@ class Settings{
             data:{
                 platform: outer.platform,
             },
+            // 将验证信息放在headers中
+            headers:{
+                'Authorization': "Bearer " + this.root.access,
+            },
             success: function(resp){
                 if(resp.result === "success"){
+                    console.log(resp);
                     outer.username = resp.username;
                     outer.photo = resp.photo;
                     outer.root.playground = new AcGamePlayground(outer.root);
@@ -1362,10 +1385,13 @@ class Settings{
     }
 }
 export class AcGame{
-    constructor(id, CloudOs){
+    constructor(id, CloudOs, access, refresh){
         this.id = id;
         this.$ac_game = $('#' + id); // 获取对应id的div标签
         this.CloudOs = CloudOs; // web端没有此参数，云端app此参数提供一系列接口
+
+        this.access = access;
+        this.refresh = refresh;
 
         //this.menu = new AcGameMenu(this);
         this.settings = new Settings(this);

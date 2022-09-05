@@ -16,7 +16,8 @@
     <script type="module"> // type + import 模块化，只将AcGame类暴露在页面的代码中
         import {AcGame} from "{% static 'js/dist/game.js' %}";
         $(document).ready(function(){
-            let ac_game = new AcGame("game_1");
+            let ac_game = new AcGame("game_1", null, "{{ access }}", "{{ refresh }}");
+            // 获取从game/views/index.py中传过来的参数信息
         });
     </script>
 

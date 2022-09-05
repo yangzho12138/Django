@@ -1,23 +1,19 @@
-from django.http import JsonResponse
+from rest_framework.views import APIView
+from rest_framework.response import Response
 from game.models.player.player import Player
+from rest_framework.permissions import IsAuthenticated
 
-def getinfo_web(request):
-    user = request.user
-    if not user.is_authenticated:
-        return JsonResponse({
-            'result': "not login",
-        })
-    else:
+# Class Based Views(基于rest_framework)
+class InfoView(APIView):
+    permission_classes = ([IsAuthenticated])
+    # 获取信息是get请求
+    def get(self, request):
+        user = request.user
         player = Player.objects.get(user=user)
-        return JsonResponse({
-            'result': "success",
-            'username': player.user.username,
+        return Response({
+            'result': 'success',
+            'username': user.username,
             'photo': player.photo,
-        }) # 返回一个字典
+        })
 
-
-def getinfo(request):
-    platform = request.GET.get("platform") # 从请求中获取platform参数的值
-    if platform == "WEB":
-        return getinfo_web(request)
 

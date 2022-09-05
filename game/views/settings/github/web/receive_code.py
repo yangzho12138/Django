@@ -1,10 +1,10 @@
-from django.shortcuts import redirect
+from django.shortcuts import redirect, reverse
 from django.core.cache import cache
 import requests
 from django.contrib.auth.models import User
 from game.models.player.player import Player
-from django.contrib.auth import login
 from random import randint
+from rest_framework_simplejwt.tokens import RefreshToken # 手动构造jwt
 
 def receive_code(request):
     data = request.GET
@@ -37,17 +37,15 @@ def receive_code(request):
     photo = userinfo_res['avatar_url']
     # 用户之前已经授权登录过
     client_id = userinfo_res['id']
-    print(client_id)
     players = Player.objects.filter(client_id=client_id)
     if players.exists():
-        login(request, players[0].user)
-        return redirect("index")
+        refresh = RefreshToken.for_user(players[0].user)
+        return redirect(reverse("index") + "?access=%s&refresh=%s"%(str(refresh.access_token),str(refresh)))
 
     # 注册用户信息
     while User.objects.filter(username=username).exists():
         username += str(randint(0,9))
     user = User.objects.create(username=username)
     player = Player.objects.create(user=user, photo=photo, client_id=client_id)
-    login(request, user)
 
-    return redirect("index") # 对应名字为index的路由
+    return redirect(reverse("index") + "?access=%s&refresh=%s"%(str(refresh.access_token),str(refresh))) # 对应名字为index的路由
